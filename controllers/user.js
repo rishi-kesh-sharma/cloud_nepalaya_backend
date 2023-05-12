@@ -1,24 +1,172 @@
-const bcryptjs = require("bcryptjs");
-const {
-  catchAsyncErrorsMiddleware: catchAsyncErrors,
-  errorMiddlware,
-} = require("../middlewares");
-const {
-  ApiFeatures,
-  destroyToken,
-  ErrorHandler,
-  getAuthenticatedUser,
-  sendEmail,
-  sendResponse,
-  sendToken,
-} = require("../utils");
+const { catchAsyncErrors: catchAsyncErrors } = require("../middlewares");
+const { ApiFeatures, ErrorHandler, sendResponse } = require("../utils");
 
-const { User } = require("../models");
+const { User: Model } = require("../models");
+const { fileSizeFormatter } = require("../utils/file");
+const path = require("path");
+const fs = require("fs");
+
+// UPDATE USER PASSWORD
+
+exports.updatePassword = catchAsyncErrors(async (req, res, next) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
+  console.log(req.body);
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    return next(new Error("fields not filled properly", 400));
+  }
+  if (confirmPassword != newPassword) {
+    return next("passwords not matching", 400);
+  }
+  const user = await Model.findById(req.user._id).select("+password");
+
+  if (!user) {
+    sendResponse(404, res, { success: false, message: "user not found " });
+  }
+  console.log(user);
+
+  const isPasswordMatched = await Model.comparePassword(
+    oldPassword,
+    user.password
+  );
+  if (!isPasswordMatched) {
+    return next(new ErrorHandler("old password is incorrect", 400));
+  }
+  const hashedPassword = await Model.hashPassword(newPassword);
+  user.password = hashedPassword;
+  await user.save();
+  sendResponse(res, 200, {
+    success: true,
+    message: "password updated successfully",
+  });
+});
+
+// UPDATE USER
+
+exports.update = catchAsyncErrors(async (req, res, next) => {
+  let document;
+
+  if (req.file) {
+    document = await Model.findById(req.params._id);
+
+    if (
+      document?.image?.fileName &&
+      document?.image.fileName != "undefined" &&
+      Object.keys(document.image) != 0
+    ) {
+      let filePath = path.join(
+        __dirname,
+        `../${document?.image?.filePath}/${document?.image?.fileName}`
+      );
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+    const image = {
+      fileName: req?.file.filename,
+      filePath: "/public/images/user",
+      fileType: req.file.mimetype,
+      fileSize: fileSizeFormatter(req.file.size, 2),
+    };
+    document = { ...req.body, image };
+  } else {
+    document = req.body;
+  }
+  document = await Model.findByIdAndUpdate(req.params._id, document, {
+    new: true,
+    upsert: true,
+    runValidators: true,
+  });
+  if (!document) {
+    sendResponse(res, 404, {
+      success: false,
+      message: `${Model.modelName} not found`,
+    });
+  }
+  sendResponse(res, 200, {
+    success: true,
+    document,
+    message: `${Model.modelName} updated !!!`,
+  });
+});
+
+// UPDATE USER ROLE
+
+exports.updateRole = catchAsyncErrors(async (req, res, next) => {
+  let user = await Model.findById(req.params._id);
+
+  if (!user) {
+    sendResponse(404, res, { success: false, message: "user not found " });
+  }
+
+  user.role = req.body.role;
+  await user.save();
+  sendResponse(res, 200, {
+    success: true,
+    message: "user role updated successfully",
+  });
+});
+
+// DELETE USER
+exports.remove = catchAsyncErrors(async (req, res, next) => {
+  let document = await Model.findById(req.params._id);
+
+  if (!document) {
+    sendResponse(404, res, { success: false, message: "user not found " });
+    return next(
+      new ErrorHandler(`user does not exist with id: ${req.params._id}`)
+    );
+  }
+  if (
+    document?.image?.fileName &&
+    document?.image.fileNa != "undefined" &&
+    Object.keys(document.image) != 0
+  ) {
+    let filePath = path.join(
+      __dirname,
+      `../${document?.image?.filePath}/${document?.image?.fileName}`
+    );
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+  document = document.remove();
+  sendResponse(res, 200, {
+    document,
+    success: true,
+    message: "user deleted successfully",
+  });
+});
+// GET ALL USERS
+
+exports.getAll = catchAsyncErrors(async (req, res, next) => {
+  let apiFeature1 = new ApiFeatures(
+    Model.find().select({ password: 0, authTokens: 0 }),
+    req.query
+  );
+  let documents = await apiFeature1.query;
+  sendResponse(res, 200, {
+    success: true,
+    documents,
+  });
+});
+// GET SINGLE USER
+
+exports.getSingle = catchAsyncErrors(async (req, res, next) => {
+  const document = await Model.findById(req.params._id).select({
+    password: 0,
+    authTokens: 0,
+  });
+  if (!document) {
+    sendResponse(404, res, { success: false, message: "user not found " });
+    return next(new ErrorHandler("user not found", 400));
+  }
+  sendResponse(res, 200, { success: true, document });
+});
 
 // forgot password
 
 // exports.forgotPassword = catchAsyncErrors(async (req, res, next) => {
-//   const user = await User.findOne({ email: req.body.email });
+//   const user = await Model.findOne({ email: req.body.email });
 //   if (!user) {
 //     return next(new Error("user not found", 404));
 //   }
@@ -49,132 +197,3 @@ const { User } = require("../models");
 //     return next(new ErrorHandler(err.message, 500));
 //   }
 // });
-
-// UPDATE USER PASSWORD
-
-exports.updateUserPassword = catchAsyncErrors(async (req, res, next) => {
-  const { oldPassword, newPassword, confirmPassword } = req.body;
-
-  if (!oldPassword || !newPassword || !confirmPassword) {
-    return next(new Error("fields not filled properly", 400));
-  }
-  if (confirmPassword != newPassword) {
-    return next("passwords not matching", 400);
-  }
-  const user = await User.findById(req.user._id);
-
-  if (!user) {
-    sendResponse(404, res, { success: false, message: "user not found " });
-  }
-
-  const isPasswordMatched = await User.comparePassword(
-    oldPassword,
-    user.password
-  );
-
-  if (!isPasswordMatched) {
-    return next(new ErrorHandler("old password is incorrect", 400));
-  }
-
-  user.password = newPassword;
-  await user.save();
-  sendResponse(res, 200, {
-    success: true,
-    message: "password updated successfully",
-  });
-});
-
-// UPDATE USER
-
-exports.updateUser = catchAsyncErrors(async (req, res, next) => {
-  console.log(req.body);
-
-  let user = await User.findByIdAndUpdate(req.params.userId, {
-    $set: req.body,
-    new: true,
-    runValidators: true,
-  });
-
-  if (!user) {
-    sendResponse(404, res, { success: false, message: "user not found " });
-  }
-  await user.save();
-
-  sendResponse(res, 200, {
-    success: true,
-    message: "user  updated successfully",
-  });
-});
-
-// UPDATE USER ROLE
-
-exports.updateUserRole = catchAsyncErrors(async (req, res, next) => {
-  let user = await User.findById(req.params.userId);
-
-  if (!user) {
-    sendResponse(404, res, { success: false, message: "user not found " });
-  }
-
-  user.role = req.body.role;
-  await user.save();
-  sendResponse(res, 200, {
-    success: true,
-    message: "user role updated successfully",
-  });
-});
-
-// DELETE USER
-exports.deleteUser = catchAsyncErrors(async (req, res, next) => {
-  const user = await User.findById(req.params.userId);
-
-  if (!user) {
-    sendResponse(404, res, { success: false, message: "user not found " });
-    return next(
-      new ErrorHandler(`user does not exist with id: ${req.params.userId}`)
-    );
-  }
-
-  const removedUser = user.remove();
-  sendResponse(res, 200, {
-    removedUser,
-    success: true,
-    message: "user deleted successfully",
-  });
-});
-
-// GET ALL USERS
-
-exports.getAllUser = catchAsyncErrors(async (req, res, next) => {
-  const resultPerPage = 11;
-  let apiFeature1 = new ApiFeatures(User.find(), req.query).search();
-  let allUsers = await apiFeature1.query;
-  const totalUsers = allUsers.length;
-
-  const apiFeature2 = new ApiFeatures(User.find(), req.query)
-    .search()
-    .pagination(resultPerPage);
-  let users = await apiFeature2.query;
-
-  const isNext =
-    parseInt(req.query.page) * resultPerPage < totalUsers &&
-    totalUsers > resultPerPage;
-  sendResponse(res, 200, {
-    success: true,
-    users,
-    next: isNext,
-    prev: apiFeature2.prev,
-    skip: apiFeature2.skip,
-  });
-});
-// GET SINGLE USER
-
-exports.getSingleUser = catchAsyncErrors(async (req, res, next) => {
-  const user = await User.findById(req.params.userId);
-  if (!user) {
-    sendResponse(404, res, { success: false, message: "user not found " });
-
-    return next(new ErrorHandler("user not found", 400));
-  }
-
-  sendResponse(res, 200, { success: true, user });
-});

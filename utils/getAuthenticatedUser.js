@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
-const { User } = require("../models");
-const getAuthenticatedUser = async (token) => {
-  const decodedData = jwt.verify(token, process.env.JWT_SECRET_KEY);
-  const user = await User.findById(decodedData.id);
-  return user;
+const { User: Model } = require("../models");
+const getAuthenticated = async (token) => {
+  console.log(token);
+  const decodedData = await jwt.verify(token, process.env.JWT_SECRET_KEY);
+  const document = await Model.findById(decodedData._id);
+  return document;
 };
-module.exports = getAuthenticatedUser;
+module.exports = getAuthenticated;

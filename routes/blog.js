@@ -1,22 +1,35 @@
 const Router = require("express").Router();
 
 const {
-  blogController: { getAllBlogs, getSingleBlog, registerBlog },
+  blog: { getAll, getSingle, create, update, remove },
 } = require("../controllers");
 
 const {
-  authMiddleWare: { authorizeRoles, isAuthenticatedUser },
+  auth: { authorizeRoles, isAuthenticated },
 } = require("../middlewares");
+const uploadImage = require("../middlewares/uploadImage");
 
 // for all users
-Router.route("/all").get(getAllBlogs);
-
+Router.route("/").get(getAll);
+Router.route("/:_id").get(getSingle);
 // for admin
-Router.route("/admin/register").post(
-  isAuthenticatedUser,
+Router.route("/").post(
+  isAuthenticated,
   authorizeRoles("superadmin admin"),
-  registerBlog
+  uploadImage("blog", "image"),
+  create
 );
-Router.route("/:blogId").get(getSingleBlog);
+Router.route("/:_id").put(
+  isAuthenticated,
+  authorizeRoles("admin superadmin"),
+  uploadImage("blog", "image"),
+  update
+);
+
+Router.route("/:_id").delete(
+  isAuthenticated,
+  authorizeRoles("admin superadmin"),
+  remove
+);
 
 module.exports = Router;

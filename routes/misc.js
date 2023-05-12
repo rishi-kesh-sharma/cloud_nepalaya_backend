@@ -1,19 +1,13 @@
 const express = require("express");
 const {
-  miscController: { getOverview },
+  misc: { getOverview },
 } = require("../controllers");
 const {
-  authMiddleWare: { isAuthenticatedUser, authorizeRoles },
+  auth: { isAuthenticated, authorizeRoles },
 } = require("../middlewares");
 
 const router = express.Router();
 // for all
-router
-  .route("/admin/overview")
-  .get(
-    isAuthenticatedUser,
-    authorizeRoles("admin superadmin guest"),
-    getOverview
-  );
+router.route("/").get(getOverview);
 
 module.exports = router;

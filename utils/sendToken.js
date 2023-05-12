@@ -13,7 +13,14 @@ const sendToken = async (res) => {
     user: others,
   };
 
-  sendResponse(res, 200, payload);
+  // sendResponse(res, 200, payload);
+  res
+    .status(200)
+    .cookie("token", token, {
+      httpOnly: true,
+      expire: Date.now() + 24 * 60 * 60,
+    })
+    .json(payload);
 };
 
 module.exports = sendToken;

@@ -1,5 +1,9 @@
-const authMiddleWare = require("./auth");
-const catchAsyncErrorsMiddleware = require("./catchAsyncErrors");
-const errorMiddlware = require("./error");
+const auth = require("./auth");
+const catchAsyncErrors = require("./catchAsyncErrors");
+const error = require("./error");
 
-module.exports = { authMiddleWare, catchAsyncErrorsMiddleware, errorMiddlware };
+module.exports = {
+  auth,
+  catchAsyncErrors,
+  error,
+};

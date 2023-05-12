@@ -1,39 +1,33 @@
 const express = require("express");
-const router = express.Router();
-
 const {
-  userController: {
-    getSingleUser,
-    getAllUser,
-    updateUser,
-    deleteUser,
-    updateUserPassword,
-    updateUserRole,
-  },
-} = require("../controllers");
-const {
-  authMiddleWare: { authorizeRoles, isAuthenticatedUser, isAuthorizedUser },
+  auth: { authorizeRoles },
 } = require("../middlewares");
+const router = express.Router();
+const {
+  user: { remove, getAll, getSingle, update, updatePassword, updateRole },
+} = require("../controllers");
+const { isAuthorized } = require("../middlewares/auth");
+const uploadImage = require("../middlewares/uploadImage");
 
-// for all
-
-// for admin
-// router
-//   .route("/admin/all")
-//   .get(authorizeRoles("superadmin admin guest"), getAllUser);
-// router
-//   .route("/admin/:userId")
-//   .get(authorizeRoles("superadmin admin guest"), getSingleUser);
-// router.route("/admin/:userId").put(authorizeRoles("superadmin"), updateUser);
-// router
-//   .route("/admin/role/:userId")
-//   .put(authorizeRoles("superadmin"), updateUserRole);
-// router.route("/admin/:userId").delete(authorizeRoles("superadmin"), deleteUser);
-
-// for authrorized user
-// router.route("/me/password").put(updateUserPassword);
-// router.route("/me/:userId").get(isAuthorizedUser, getSingleUser);
-// router.route("/me/:userId").put(isAuthorizedUser, updateUser);
-// router.route("/me/:userId").delete(isAuthorizedUser, deleteUser);
-
+router.route("/").get(authorizeRoles("superadmin admin guest"), getAll);
+router.route("/:_id").get(authorizeRoles("superadmin admin"), getSingle);
+router
+  .route("/:_id")
+  .put(authorizeRoles("superadmin"), uploadImage("user", "image"), update);
+router
+  .route("/profile/me")
+  .put(isAuthorized, uploadImage("user", "image"), update);
+router.route("/:_id").delete(authorizeRoles("superadmin"), remove);
+router.route("/profile/me").delete(isAuthorized, remove);
+router.route("/role/:_id").put(authorizeRoles("superadmin"), updateRole);
+router
+  .route("/profile/password/me")
+  .put(isAuthorized, uploadImage("user", "image"), updatePassword);
+router
+  .route("/password/:_id")
+  .put(
+    authorizeRoles("superadmin"),
+    uploadImage("user", "image"),
+    updatePassword
+  );
 module.exports = router;

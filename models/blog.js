@@ -1,7 +1,6 @@
 const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken");
-// CREATE SCHEMA FOR BLOG
-const BlogSchema = mongoose.Schema(
+// CREATE SCHEMA
+const Schema = mongoose.Schema(
   {
     title: {
       type: String,
@@ -16,6 +15,12 @@ const BlogSchema = mongoose.Schema(
       required: true,
       ref: "User",
     },
+    image: {
+      fileName: String,
+      filePath: String,
+      fileType: String,
+      fileSize: String,
+    },
     likesCount: {
       type: Number,
       default: 100,
@@ -24,5 +29,4 @@ const BlogSchema = mongoose.Schema(
   { timestamps: true }
 );
 
-const Blog = mongoose.model("Blog", BlogSchema);
-module.exports = Blog;
+module.exports = mongoose.model("Blog", Schema);

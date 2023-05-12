@@ -1,27 +1,18 @@
+const { catchAsyncErrors } = require("../middlewares");
 const {
-  catchAsyncErrorsMiddleware: catchAsyncErrors,
-} = require("../middlewares");
-const {
-  getAuthenticatedUser,
+  getAuthenticated,
   sendResponse,
   sendToken,
   ErrorHandler,
 } = require("../utils");
 
-const { User } = require("../models");
+const { User: Model } = require("../models");
+const { fileSizeFormatter } = require("../utils/file");
 
 // REGISTER USER
-exports.registerUser = catchAsyncErrors(async (req, res, next) => {
-  const {
-    password,
-    confirmPassword,
-    username,
-    email,
-    profilePic,
-    role,
-    address,
-    contact,
-  } = req.body;
+exports.register = catchAsyncErrors(async (req, res, next) => {
+  const { password, confirmPassword, username, email, role, address, contact } =
+    req.body;
 
   if (!password || !confirmPassword || !username || !email || !role) {
     sendResponse(res, 400, {
@@ -38,28 +29,38 @@ exports.registerUser = catchAsyncErrors(async (req, res, next) => {
     });
     return next(new ErrorHandler("passwords not matching", 401));
   }
-  const hashedPassword = await User.hashPassword(password);
-  const user = new User({
-    password: hashedPassword,
-    username,
-    email,
-    profilePic,
-    role,
-    address,
-    contact,
+  const hashedPassword = await Model.hashPassword(password);
+  let document;
+  if (req.file) {
+    const image = {
+      fileName: req?.file?.filename,
+      filePath: "/public/images/user",
+      fileType: req.file.mimetype,
+      fileSize: fileSizeFormatter(req.file.size, 2),
+    };
+    document = await Model.create({
+      ...req.body,
+      image: image,
+      password: hashedPassword,
+    });
+  } else {
+    document = await Model.create({ ...req.body, password: hashedPassword });
+  }
+  await document.save();
+  sendResponse(res, 200, {
+    success: true,
+    message: `${Model.modelName} created !!!`,
   });
-
-  const savedUser = await user.save();
 
   sendResponse(res, 200, {
     success: true,
-    message: "user is registered",
-    user: savedUser,
+    message: `${Model.modelName} is registered`,
+    document: document,
   });
 });
 
 // LOGIN USER
-exports.loginUser = catchAsyncErrors(async (req, res, next) => {
+exports.login = catchAsyncErrors(async (req, res, next) => {
   const { email, password } = req.body;
 
   //  checking if user has given password and email both
@@ -72,9 +73,9 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("please enter email and password", 400));
   }
 
-  const user = await User.findOne({ email: email });
+  const document = await Model.findOne({ email: email }).select("+password");
 
-  if (!user) {
+  if (!document) {
     sendResponse(res, 404, {
       success: false,
       message: "invalid email or password",
@@ -82,7 +83,10 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
     return next(new ErrorHandler("invalid email or password", 401));
   }
   //    compare password statics
-  const isPasswordMatched = await User.comparePassword(password, user.password);
+  const isPasswordMatched = await Model.comparePassword(
+    password,
+    document.password
+  );
   if (!isPasswordMatched) {
     sendResponse(res, 401, {
       success: false,
@@ -91,42 +95,42 @@ exports.loginUser = catchAsyncErrors(async (req, res, next) => {
 
     return next(new ErrorHandler("invalid email or password", 401));
   }
-  res.user = user;
+  res.user = document;
 
   sendToken(res);
 });
 
 // LOGOUT USER
 exports.logout = catchAsyncErrors(async (req, res, next) => {
-  const token = req.headers["auth-token"];
-  const user = await User.findOne({
+  const token = req.headers["auth-token"] || req.cookies.token;
+  const document = await Model.findOne({
     authTokens: { $all: [`${token}`] },
   }).select({ password: 0 });
+  if (!document) {
+    return next(new ErrorHandler("please login to access this resource", 401));
+  }
+  document.authTokens = [];
 
-  user.authTokens = [];
-  await user.save();
-  sendResponse(res, 200, {
-    success: true,
-    message: "user logged out !!!",
-    action: "logout",
-  });
-  // destroyToken(res);
+  await document.save();
+  res
+    .status(200)
+    .clearCookie("token")
+    .json({ success: true, message: "user logged out!!!" });
 });
 
 exports.checkTokenValidity = catchAsyncErrors(async (req, res, next) => {
-  const token = req.headers["auth-token"];
+  const token = req.headers["auth-token"] || req.cookies.token;
   if (!token) return sendResponse(res, 400, { success: false });
-  const authenticatedUser = await getAuthenticatedUser(token);
+  const authenticatedUser = await getAuthenticated(token);
   if (!authenticatedUser) {
     return sendResponse(res, 400, { success: false });
   }
-  const user = await User.findOne({
+  const user = await Model.findOne({
     authTokens: { $all: [`${token}`] },
   }).select({ password: 0 });
 
   if (!user) {
     return sendResponse(res, 400, { success: false });
   }
-
   return sendResponse(res, 200, { success: true, user });
 });
