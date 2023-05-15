@@ -17,16 +17,16 @@ router
 router
   .route("/profile/me")
   .put(isAuthorized, uploadImage("user", "image"), update);
-router.route("/:_id").delete(authorizeRoles("superadmin"), remove);
+router.route("/:_id").delete(authorizeRoles("superadmin admin"), remove);
 router.route("/profile/me").delete(isAuthorized, remove);
-router.route("/role/:_id").put(authorizeRoles("superadmin"), updateRole);
+router.route("/role/:_id").put(authorizeRoles("superadmin admin"), updateRole);
 router
   .route("/profile/password/me")
   .put(isAuthorized, uploadImage("user", "image"), updatePassword);
 router
   .route("/password/:_id")
   .put(
-    authorizeRoles("superadmin"),
+    authorizeRoles("superadmin admin"),
     uploadImage("user", "image"),
     updatePassword
   );

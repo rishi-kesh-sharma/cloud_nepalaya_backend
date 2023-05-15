@@ -76,14 +76,18 @@ exports.update = catchAsyncErrors(async (req, res, next) => {
           return item;
         }
       });
-
       await service.save();
     }
+  }
+  let payload = {};
+  if (!req.body.service) {
+    payload = { service: 1 };
   }
   document = await Model.findByIdAndUpdate(
     { _id: req.params._id },
     {
       ...req.body,
+      $unset: payload,
     },
     {
       new: true,
@@ -101,8 +105,7 @@ exports.update = catchAsyncErrors(async (req, res, next) => {
 
 //DELETE FAQ
 exports.remove = catchAsyncErrors(async (req, res, next) => {
-  const document = await Model.findById(req.params._id);
-  console.log(document);
+  let document = await Model.findById(req.params._id);
   if (!document) {
     return sendResponse(res, 404, {
       success: false,
@@ -125,8 +128,7 @@ exports.remove = catchAsyncErrors(async (req, res, next) => {
       await service.save();
     }
   }
-  document.remove();
-
+  document = await document.remove();
   sendResponse(res, 200, {
     success: true,
     message: `${Model.modelName} deleted`,

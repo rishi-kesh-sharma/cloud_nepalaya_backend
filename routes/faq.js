@@ -6,7 +6,7 @@ const router = express.Router();
 const {
   FAQ: { create, remove, getAll, getSingle, update },
 } = require("../controllers");
-
+const uploadImage = require("../middlewares/uploadImage");
 // for general users
 router
   .route("/")
@@ -20,6 +20,11 @@ router
   .delete(isAuthenticated, authorizeRoles("superadmin admin"), remove);
 router
   .route("/:_id")
-  .put(isAuthenticated, authorizeRoles("superadmin admin"), update);
+  .put(
+    isAuthenticated,
+    authorizeRoles("superadmin admin"),
+    uploadImage("faq", "image"),
+    update
+  );
 
 module.exports = router;
