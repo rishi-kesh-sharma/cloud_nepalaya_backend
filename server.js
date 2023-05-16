@@ -49,7 +49,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use(express.json());
 // app.use(formidableMiddleware());
-app.use(cors());
+app.use(cors({ origin: "http://cloudnepalaya.com" }));
 app.use(cookieParser());
 app.use("/public", express.static("public"));
 // multer configuration
