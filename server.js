@@ -51,7 +51,8 @@ app.use(express.json());
 // app.use(formidableMiddleware());
 app.use(
   cors({
-    origin: ["http://admin.cloudnepalaya.com", "http://cloudnepalaya.com"],
+    // origin: ["http://admin.cloudnepalaya.com", "http://cloudnepalaya.com", "*"],
+    origin: "*",
   })
 );
 app.use(cookieParser());
